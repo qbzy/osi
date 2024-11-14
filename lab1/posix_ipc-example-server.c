@@ -13,14 +13,14 @@ static char CLIENT_PROGRAM_NAME[] = "posix_ipc-example-client";
 int main() {
 
     char file[4096];
+    write(STDIN_FILENO, "Enter filename: ", 16);
     if (scanf("%s", file) <= 0){
 
         char mssg[1024];
-        uint32_t len = snprintf(mssg, sizeof(mssg) - 1, "Enter filename\n");
+        uint32_t len = snprintf(mssg, sizeof(mssg) - 1, "Enter filename failed\n");
         write(STDERR_FILENO, mssg, len);
         exit(EXIT_SUCCESS);
     }
-
 
 
 
@@ -28,8 +28,7 @@ int main() {
     char progpath[1024];
     {
         // NOTE: Read full program path, including its name
-        ssize_t len = readlink("/proc/self/exe", progpath,
-                               sizeof(progpath) - 1);
+        ssize_t len = readlink("/proc/self/exe", progpath, sizeof(progpath) - 1);
         if (len == -1) {
             const char msg[] = "error: failed to read full program path\n";
             write(STDERR_FILENO, msg, sizeof(msg));
