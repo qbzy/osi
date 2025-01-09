@@ -8,7 +8,6 @@
 #include <stdlib.h>    /* atof, atoi, rand, srand */
 #include <unistd.h>    /* write, _exit, getpid */
 #include <pthread.h>   /* pthread_create, pthread_join, pthread_mutex_* */
-#include <math.h>      /* fabs, sqrt */
 #include <time.h>      /* time (для srand), можно заменить при желании */
 #include <string.h>    /* для обработки строк в функциях конвертации */
 
@@ -19,7 +18,7 @@
  * Общее количество случайных точек, которые будем генерировать.
  * Чем больше точек, тем точнее результат, но дольше время вычисления.
  */
-#define TOTAL_POINTS 1000000000
+#define TOTAL_POINTS 100000000
 
 /*
  * Размер "задачи" — количество точек, обрабатываемых одним потоком за один раз.
@@ -39,8 +38,6 @@ static pthread_mutex_t g_taskMutex = PTHREAD_MUTEX_INITIALIZER;  // для g_nex
 static pthread_mutex_t g_resultMutex = PTHREAD_MUTEX_INITIALIZER;  // для g_insideCount
 
 //------------------------------------------------------------------------------
-// Простые вспомогательные функции для вывода (без <stdio.h>):
-
 /*
  * Функция my_itoa: преобразует целое число value в десятичную строку в buf.
  * Возвращает количество записанных символов (не включая '\0').
@@ -134,7 +131,7 @@ static void write_str(const char *s) {
     while (s[len] != '\0') {
         len++;
     }
-    write(1, s, len);
+    write(STDOUT_FILENO, s, len);
 }
 
 //------------------------------------------------------------------------------
@@ -206,15 +203,11 @@ static void *thread_worker(void *arg) {
 // Точка входа в программу
 
 int main(int argc, char *argv[]) {
-    // 1) Парсим аргументы командной строки
-    //    Ожидаем:
-    //       argv[1] = радиус (вещественное число)
-    //       argv[2] = maxThreads (целое число)
-    //    Проверки корректности опустим для краткости (но в реальном коде нужны).
+
 
     if (argc < 3) {
-        // Вместо printf выведем ошибку через write и завершимся
-        write_str("Usage: ./monte_carlo_circle <radius> <max_threads>\n");
+
+        write_str("Usage: ./lab2 <radius> <max_threads>\n");
         _exit(1);
     }
 
@@ -232,17 +225,12 @@ int main(int argc, char *argv[]) {
         _exit(1);
     }
 
-    // 2) Подготовим общие данные для многопоточной обработки.
-    //    Предположим, что мы хотим сгенерировать всего TOTAL_POINTS точек.
-    //    Каждая «задача» обрабатывает CHUNK_SIZE точек,
-    //    итого будет g_totalTasks задач.
+
 
     g_totalTasks = (int) (TOTAL_POINTS / CHUNK_SIZE);
-    // если TOTAL_POINTS не кратно CHUNK_SIZE, можно учесть остаток,
-    // но для простоты примера опустим.
 
-    // 3) Создаём пул потоков.
-    //    Количество одновременно работающих потоков не должно превышать maxThreads.
+
+
     pthread_t *threads = (pthread_t *) malloc(sizeof(pthread_t) * maxThreads);
     if (!threads) {
         write_str("Memory allocation error\n");
