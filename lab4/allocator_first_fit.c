@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// Было: typedef struct Node { size_t capacity; struct Node* next; } Node;
-// Становится: typedef struct Chunk { size_t length; struct Chunk* next; } Chunk;
+
 typedef struct Chunk {
     size_t length;
     struct Chunk* next;
