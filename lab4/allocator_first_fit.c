@@ -1,77 +1,61 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
 
+typedef struct Block {
+    size_t size;
+    struct Block* next;
+} Block;
 
-typedef struct Chunk {
-    size_t length;
-    struct Chunk* next;
-} Chunk;
+typedef struct Allocator{
+    void* memory;
+    size_t size;
+    Block* free_list;
+} Allocator;
 
-typedef struct {
-    Chunk* free_list;
-} AllocFF;
-
-// Внешний интерфейс
-AllocFF* allocator_create(void* mem, size_t sz) {
-    AllocFF* a = (AllocFF*)mem;
-    a->free_list = (Chunk*)((char*)mem + sizeof(AllocFF));
-    a->free_list->length = sz - sizeof(AllocFF) - sizeof(Chunk);
-    a->free_list->next = NULL;
-    return a;
+Allocator* allocator_create(void* memory, size_t size) {
+    Allocator* allocator = (Allocator*)mmap(NULL, sizeof(Allocator), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    allocator->memory = memory;
+    allocator->size = size;
+    allocator->free_list = (Block*)memory;
+    allocator->free_list->size = size;
+    allocator->free_list->next = NULL;
+    return allocator;
 }
 
-void allocator_destroy(AllocFF* a) {
-    (void)a; // Ничего не делаем
+void allocator_destroy(Allocator* allocator) {
+    munmap(allocator, sizeof(Allocator));
 }
 
-void* allocator_alloc(AllocFF* a, size_t needed) {
-    Chunk* prev = NULL;
-    Chunk* cur = a->free_list;
+void* allocator_alloc(Allocator* allocator, size_t size) {
+    Block* prev = NULL;
+    Block* curr = allocator->free_list;
 
-    while (cur) {
-        if (cur->length >= needed) {
-            // Можно разместить
-            if (cur->length - needed > sizeof(Chunk)) {
-                // Разделяем блок
-                char* split_addr = (char*)cur + sizeof(Chunk) + needed;
-                Chunk* new_chunk = (Chunk*)split_addr;
-                new_chunk->length = cur->length - needed - sizeof(Chunk);
-                new_chunk->next = cur->next;
-
-                // Текущему уменьшаем length
-                cur->length = needed;
-
-                // Вставляем new_chunk в список
-                if (prev) {
-                    prev->next = new_chunk;
-                } else {
-                    a->free_list = new_chunk;
-                }
-            } else {
-                // Берём целиком
-                if (prev) {
-                    prev->next = cur->next;
-                } else {
-                    a->free_list = cur->next;
-                }
+    while (curr != NULL) {
+        if (curr->size >= size) {
+            if (curr->size > size + sizeof(Block)) {
+                Block* new_block = (Block*)((char*)curr + sizeof(Block) + size);
+                new_block->size = curr->size - size - sizeof(Block);
+                new_block->next = curr->next;
+                curr->size = size;
+                curr->next = new_block;
             }
-            return (char*)cur + sizeof(Chunk);
+            if (prev == NULL) {
+                allocator->free_list = curr->next;
+            } else {
+                prev->next = curr->next;
+            }
+            return (void*)((char*)curr + sizeof(Block));
         }
-        // Двигаемся дальше
-        prev = cur;
-        cur  = cur->next;
+        prev = curr;
+        curr = curr->next;
     }
-    // Не нашли подходящий блок
     return NULL;
 }
 
-void allocator_free(AllocFF* a, void* mem) {
-    if (!mem) return;
-    Chunk* freed = (Chunk*)((char*)mem - sizeof(Chunk));
-
-    // Кладём освобождённый блок в начало списка
-    freed->next = a->free_list;
-    a->free_list = freed;
+void allocator_free(Allocator* allocator, void* memory) {
+    Block* block = (Block*)((char*)memory - sizeof(Block));
+    block->next = allocator->free_list;
+    allocator->free_list = block;
 }
